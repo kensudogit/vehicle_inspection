@@ -1,0 +1,63 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: vehicle_inspection
+      POSTGRES_USER: vi_user
+      POSTGRES_PASSWORD: vi_pass
+    ports:
+      - "5434:5432"
+    volumes:
+      - vi_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vi_user -d vehicle_inspection"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: vehicle_inspection
+      DB_USER: vi_user
+      DB_PASSWORD: vi_pass
+      JWT_SECRET: dev-jwt-secret-key-minimum-32-characters-long!!
+      CORS_ORIGINS: http://localhost:3000
+      MAIL_HOST: mailhog
+      MAIL_PORT: 1025
+      STORAGE_PROVIDER: local
+      LOCAL_STORAGE_PATH: /app/storage
+    ports:
+      - "8080:8080"
+    volumes:
+      - vi_storage:/app/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    environment:
+      API_URL: http://backend:8080
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  vi_pg_data:
+  vi_storage:

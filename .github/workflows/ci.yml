@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: vehicle_inspection
+          POSTGRES_USER: vi_user
+          POSTGRES_PASSWORD: vi_pass
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U vi_user -d vehicle_inspection"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Build & Test
+        working-directory: backend
+        env:
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_NAME: vehicle_inspection
+          DB_USER: vi_user
+          DB_PASSWORD: vi_pass
+          JWT_SECRET: ci-jwt-secret-key-minimum-32-characters-long!!
+        run: mvn -B verify
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install & Build
+        working-directory: frontend
+        run: |
+          npm install
+          npm run build

@@ -1,0 +1,10 @@
+package jp.vehicle.inspection.domain.repository;
+
+import jp.vehicle.inspection.domain.entity.Customer;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.Optional;
+
+public interface CustomerRepository extends JpaRepository<Customer, Long> {
+    Optional<Customer> findByCustomerCode(String customerCode);
+}
