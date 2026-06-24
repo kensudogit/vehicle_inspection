@@ -1,13 +1,15 @@
 spring:
   datasource:
-    url: jdbc:postgresql://${PGHOST}:${PGPORT:5432}/${PGDATABASE}
-    username: ${PGUSER}
-    password: ${PGPASSWORD}
+    url: jdbc:postgresql://${PGHOST:localhost}:${PGPORT:5432}/${PGDATABASE:railway}
+    username: ${PGUSER:postgres}
+    password: ${PGPASSWORD:}
 
 server:
   port: 8080
 
 app:
+  jwt:
+    secret: ${JWT_SECRET:change-me-in-production-use-256bit-secret-key-here!!}
   cors:
     allowed-origins: ${CORS_ORIGINS:*}
   storage:

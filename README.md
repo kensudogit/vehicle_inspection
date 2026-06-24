@@ -133,12 +133,13 @@ Flyway マイグレーション: `backend/src/main/resources/db/migration/V1__in
 
 | 変数 | 値 |
 |------|-----|
+| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}`（推奨・自動で JDBC 変換） |
 | `JWT_SECRET` | 32文字以上のランダム文字列 |
-| `PGHOST` | `${{Postgres.PGHOST}}` |
+| `PGHOST` | `${{Postgres.PGHOST}}`（個別指定する場合） |
 | `PGPORT` | `${{Postgres.PGPORT}}` |
 | `PGUSER` | `${{Postgres.PGUSER}}` |
 | `PGPASSWORD` | `${{Postgres.PGPASSWORD}}` |
 | `PGDATABASE` | `${{Postgres.PGDATABASE}}` |
 
-Postgres プラグインを追加後、上記を Reference 変数で設定して Redeploy してください。
+Postgres プラグインを追加し、`DATABASE_URL` を Reference 変数で設定して Redeploy してください。ヘルスチェック失敗時は Postgres 未接続が多い原因です。
 "# vehicle_inspection" 
