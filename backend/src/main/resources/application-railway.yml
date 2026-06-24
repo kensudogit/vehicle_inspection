@@ -1,0 +1,15 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://${PGHOST}:${PGPORT:5432}/${PGDATABASE}
+    username: ${PGUSER}
+    password: ${PGPASSWORD}
+
+server:
+  port: 8080
+
+app:
+  cors:
+    allowed-origins: ${CORS_ORIGINS:*}
+  storage:
+    provider: ${STORAGE_PROVIDER:local}
+    local-path: /app/storage

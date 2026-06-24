@@ -1,0 +1,10 @@
+.git
+.github
+**/target
+**/node_modules
+**/.next
+/storage
+*.md
+docker-compose.yml
+backend/Dockerfile
+frontend/Dockerfile

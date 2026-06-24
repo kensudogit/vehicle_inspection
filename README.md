@@ -120,7 +120,25 @@ Flyway マイグレーション: `backend/src/main/resources/db/migration/V1__in
 - **個人情報:** 認証必須 API、監査ログ、マーケティング同意フラグ
 - **操作履歴:** 全主要操作を `audit_logs` に JSON 保存
 
-## ライセンス
+## Railway デプロイ
 
-Private / Internal Use
+ログ `couldn't locate the dockerfile at path Dockerfile` はリポジトリルートに `Dockerfile` が無い場合に発生します。以下を追加済みです。
+
+- `Dockerfile` — Next.js + Spring Boot 統合イメージ
+- `railway.toml` — ビルド設定・ヘルスチェック `/api/health`
+- `start.sh` — 起動スクリプト
+- `application-railway.yml` — PostgreSQL 接続（Railway Postgres プラグイン）
+
+### Railway 環境変数
+
+| 変数 | 値 |
+|------|-----|
+| `JWT_SECRET` | 32文字以上のランダム文字列 |
+| `PGHOST` | `${{Postgres.PGHOST}}` |
+| `PGPORT` | `${{Postgres.PGPORT}}` |
+| `PGUSER` | `${{Postgres.PGUSER}}` |
+| `PGPASSWORD` | `${{Postgres.PGPASSWORD}}` |
+| `PGDATABASE` | `${{Postgres.PGDATABASE}}` |
+
+Postgres プラグインを追加後、上記を Reference 変数で設定して Redeploy してください。
 "# vehicle_inspection" 
