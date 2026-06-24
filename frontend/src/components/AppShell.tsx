@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { clearToken, getToken } from "@/lib/api";
+import { UsageGuidePanel } from "@/components/UsageGuidePanel";
 
 const NAV = [
   { href: "/", label: "ダッシュボード" },
@@ -55,6 +56,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
       <main><div className="container">{children}</div></main>
+      <UsageGuidePanel />
     </>
   );
 }
