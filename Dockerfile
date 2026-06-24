@@ -1,4 +1,4 @@
-# Combined: Next.js (public PORT) + Spring Boot (internal :8080)
+# Combined: Next.js (public PORT) + Spring Boot (internal BACKEND_PORT)
 FROM maven:3.9-eclipse-temurin-21 AS backend-builder
 WORKDIR /app
 COPY backend/pom.xml .
@@ -10,7 +10,8 @@ WORKDIR /app/frontend
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
 COPY frontend/ .
-ENV API_URL=http://127.0.0.1:8080
+ENV API_URL=http://127.0.0.1:8081
+ENV BACKEND_PORT=8081
 ENV NODE_ENV=production
 RUN npm run build
 
@@ -30,7 +31,8 @@ RUN chmod +x /app/start.sh
 
 ENV SPRING_PROFILES_ACTIVE=railway
 ENV NODE_ENV=production
-ENV SERVER_PORT=8080
+ENV BACKEND_PORT=8081
+ENV SERVER_PORT=8081
 ENV LOCAL_STORAGE_PATH=/app/storage
 
 EXPOSE 3000

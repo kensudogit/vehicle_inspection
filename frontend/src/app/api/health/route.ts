@@ -1,4 +1,5 @@
-const BACKEND_HEALTH = "http://127.0.0.1:8080/api/health";
+const BACKEND_PORT = process.env.BACKEND_PORT || "8081";
+const BACKEND_HEALTH = `http://127.0.0.1:${BACKEND_PORT}/api/health`;
 
 export async function GET() {
   try {

@@ -1,6 +1,11 @@
 #!/bin/sh
 set -e
 
+BACKEND_PORT="${BACKEND_PORT:-8081}"
+export BACKEND_PORT
+export SERVER_PORT="$BACKEND_PORT"
+export API_URL="http://127.0.0.1:${BACKEND_PORT}"
+
 resolve_database_env() {
   if [ -n "$SPRING_DATASOURCE_URL" ]; then
     echo "[start] Using SPRING_DATASOURCE_URL"
@@ -45,7 +50,7 @@ DB_HOST="$(echo "$SPRING_DATASOURCE_URL" | sed -n 's|jdbc:postgresql://\([^:/]*\
 echo "[start] Database host: ${DB_HOST:-unknown}"
 
 cd /app/backend
-echo "[start] Launching Spring Boot..."
+echo "[start] Launching Spring Boot on port ${BACKEND_PORT}..."
 java -jar app.jar 2>&1 | tee /tmp/backend.log &
 BACKEND_PID=$!
 
@@ -53,7 +58,7 @@ echo "[start] Waiting for backend /api/health ..."
 READY=0
 i=0
 while [ "$i" -lt 120 ]; do
-  if curl -sf http://127.0.0.1:8080/api/health >/dev/null 2>&1; then
+  if curl -sf "http://127.0.0.1:${BACKEND_PORT}/api/health" >/dev/null 2>&1; then
     READY=1
     echo "[start] Backend is ready"
     break
@@ -68,6 +73,7 @@ if [ "$READY" -eq 0 ]; then
   exit 1
 fi
 
+FRONTEND_PORT="${PORT:-3000}"
 cd /app/frontend
-echo "[start] Launching Next.js on port ${PORT:-3000}..."
-exec npm start -- -p "${PORT:-3000}" -H 0.0.0.0
+echo "[start] Launching Next.js on port ${FRONTEND_PORT} (backend on ${BACKEND_PORT})..."
+exec npm start -- -p "${FRONTEND_PORT}" -H 0.0.0.0
