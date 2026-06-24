@@ -3,13 +3,14 @@ package jp.vehicle.inspection.config;
 import jp.vehicle.inspection.domain.entity.*;
 import jp.vehicle.inspection.domain.repository.*;
 import jp.vehicle.inspection.util.MaintenanceHashUtil;
-import lombok.RequiredArgsConstructor;
+import jp.vehicle.inspection.util.VehicleValidation;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -24,7 +25,6 @@ import java.util.Map;
 @Slf4j
 @Component
 @Order(2)
-@RequiredArgsConstructor
 public class SampleDataLoader implements CommandLineRunner {
 
     private static final BigDecimal TAX_RATE = new BigDecimal("0.10");
@@ -41,12 +41,41 @@ public class SampleDataLoader implements CommandLineRunner {
     private final AuditLogRepository auditLogRepository;
     private final UserRepository userRepository;
     private final MaintenanceHashUtil hashUtil;
+    private final TransactionTemplate transactionTemplate;
 
     @Value("${app.seed-sample-data:true}")
     private boolean seedEnabled;
 
+    public SampleDataLoader(
+            CustomerRepository customerRepository,
+            VehicleRepository vehicleRepository,
+            InspectionReservationRepository reservationRepository,
+            EstimateRepository estimateRepository,
+            InvoiceRepository invoiceRepository,
+            PaymentRepository paymentRepository,
+            MaintenanceRecordRepository maintenanceRecordRepository,
+            NotificationRepository notificationRepository,
+            VehicleInspectionRepository vehicleInspectionRepository,
+            AuditLogRepository auditLogRepository,
+            UserRepository userRepository,
+            MaintenanceHashUtil hashUtil,
+            PlatformTransactionManager transactionManager) {
+        this.customerRepository = customerRepository;
+        this.vehicleRepository = vehicleRepository;
+        this.reservationRepository = reservationRepository;
+        this.estimateRepository = estimateRepository;
+        this.invoiceRepository = invoiceRepository;
+        this.paymentRepository = paymentRepository;
+        this.maintenanceRecordRepository = maintenanceRecordRepository;
+        this.notificationRepository = notificationRepository;
+        this.vehicleInspectionRepository = vehicleInspectionRepository;
+        this.auditLogRepository = auditLogRepository;
+        this.userRepository = userRepository;
+        this.hashUtil = hashUtil;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
+    }
+
     @Override
-    @Transactional
     public void run(String... args) {
         if (!seedEnabled) {
             return;
@@ -54,7 +83,14 @@ public class SampleDataLoader implements CommandLineRunner {
         if (customerRepository.count() > 0) {
             return;
         }
+        try {
+            transactionTemplate.executeWithoutResult(status -> seed());
+        } catch (Exception e) {
+            log.error("Sample data seed failed; application will continue without demo data", e);
+        }
+    }
 
+    private void seed() {
         Long adminId = userRepository.findByEmail("admin@vehicle-inspection.local")
                 .map(User::getId)
                 .orElse(null);
@@ -70,7 +106,7 @@ public class SampleDataLoader implements CommandLineRunner {
 
         Vehicle v1 = saveVehicle(yamada.getId(), "品川500あ1234", "JTDBT923503012345",
                 "トヨタ", "プリウス", today.plusDays(14), 45200, adminId);
-        Vehicle v2 = saveVehicle(sato.getId(), "横浜330い5678", "JH4NA16555T0123456",
+        Vehicle v2 = saveVehicle(sato.getId(), "横浜330い5678", "JH4NA16555T012345",
                 "ホンダ", "フィット", today.plusDays(45), 32100, adminId);
         Vehicle v3 = saveVehicle(suzuki.getId(), "多摩580う9012", "WBA3A31070F123456",
                 "BMW", "320i", today.plusDays(7), 67800, adminId);
@@ -131,10 +167,19 @@ public class SampleDataLoader implements CommandLineRunner {
 
     private Vehicle saveVehicle(Long customerId, String reg, String chassis, String maker, String model,
                                 LocalDate expiry, int mileage, Long adminId) {
+        String normalizedReg = VehicleValidation.normalizeRegistrationNumber(reg);
+        String normalizedChassis = VehicleValidation.normalizeChassisNumber(chassis);
+        if (!VehicleValidation.isValidRegistrationNumber(normalizedReg)) {
+            throw new IllegalArgumentException("Invalid sample registration number: " + reg);
+        }
+        if (!VehicleValidation.isValidChassisNumber(normalizedChassis)) {
+            throw new IllegalArgumentException(
+                    "Invalid sample chassis number (must be 17 chars): " + normalizedChassis);
+        }
         Vehicle v = Vehicle.builder()
                 .customerId(customerId)
-                .registrationNumber(reg)
-                .chassisNumber(chassis)
+                .registrationNumber(normalizedReg)
+                .chassisNumber(normalizedChassis)
                 .maker(maker)
                 .model(model)
                 .modelYear(2019)
