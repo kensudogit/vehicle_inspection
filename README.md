@@ -45,6 +45,8 @@ docker compose up -d --build
 
 **初期ログイン:** `admin@vehicle-inspection.local` / `admin123`
 
+初回起動時、顧客テーブルが空の場合は **サンプルデータ**（顧客3件・車両3件・見積・請求・予約・通知など）が自動投入されます。無効化する場合は `SEED_SAMPLE_DATA=false` を設定してください。
+
 ## ローカル開発
 
 ### 前提
