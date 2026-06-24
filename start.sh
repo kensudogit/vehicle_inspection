@@ -1,6 +1,49 @@
 #!/bin/sh
 set -e
 
+resolve_database_env() {
+  if [ -n "$SPRING_DATASOURCE_URL" ]; then
+    echo "[start] Using SPRING_DATASOURCE_URL"
+    return 0
+  fi
+
+  DB_RAW="${DATABASE_URL:-${DATABASE_PRIVATE_URL:-}}"
+  if [ -n "$DB_RAW" ]; then
+    echo "[start] Resolving JDBC URL from DATABASE_URL"
+    eval "$(DB_RAW="$DB_RAW" node -e "
+      const raw = process.env.DB_RAW;
+      const u = new URL(raw.replace(/^postgres(ql)?:/,'http:'));
+      const db = u.pathname.replace(/^\//,'') || 'railway';
+      const host = u.hostname;
+      const port = u.port || '5432';
+      const user = decodeURIComponent(u.username || '');
+      const pass = decodeURIComponent(u.password || '');
+      console.log('export SPRING_DATASOURCE_URL=' + JSON.stringify('jdbc:postgresql://' + host + ':' + port + '/' + db));
+      console.log('export SPRING_DATASOURCE_USERNAME=' + JSON.stringify(user));
+      console.log('export SPRING_DATASOURCE_PASSWORD=' + JSON.stringify(pass));
+    ")"
+    return 0
+  fi
+
+  if [ -n "$PGHOST" ]; then
+    echo "[start] Building JDBC URL from PGHOST"
+    export SPRING_DATASOURCE_URL="jdbc:postgresql://${PGHOST}:${PGPORT:-5432}/${PGDATABASE:-railway}"
+    export SPRING_DATASOURCE_USERNAME="${PGUSER:-postgres}"
+    export SPRING_DATASOURCE_PASSWORD="${PGPASSWORD:-}"
+    return 0
+  fi
+
+  echo "[start] ERROR: Database not configured."
+  echo "[start] On Railway: add Postgres, open your app service Variables, and set"
+  echo "[start]   DATABASE_URL = \${{Postgres.DATABASE_URL}}"
+  echo "[start] Or reference PGHOST, PGPORT, PGUSER, PGPASSWORD, PGDATABASE from Postgres."
+  exit 1
+}
+
+resolve_database_env
+DB_HOST="$(echo "$SPRING_DATASOURCE_URL" | sed -n 's|jdbc:postgresql://\([^:/]*\).*|\1|p')"
+echo "[start] Database host: ${DB_HOST:-unknown}"
+
 cd /app/backend
 echo "[start] Launching Spring Boot..."
 java -jar app.jar 2>&1 | tee /tmp/backend.log &

@@ -5,46 +5,72 @@ import org.springframework.boot.env.EnvironmentPostProcessor;
 import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.MapPropertySource;
 
-import java.net.URI;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
- * Railway Postgres は DATABASE_URL (postgresql://...) を提供するため JDBC URL に変換する。
+ * Railway Postgres の DATABASE_URL (postgresql://...) を JDBC 接続情報に変換する。
+ * start.sh でも同様の変換を行うが、ローカル jar 起動時のフォールバックとして残す。
  */
 public class RailwayDatabaseEnvironmentPostProcessor implements EnvironmentPostProcessor {
 
+    private static final Pattern DATABASE_URL_PATTERN = Pattern.compile(
+            "^postgres(?:ql)?://([^:]+):([^@]*)@([^:/]+)(?::(\\d+))?/(.+)$"
+    );
+
     @Override
     public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
-        if (!environment.acceptsProfiles(p -> p.test("railway"))) {
+        if (environment.getProperty("SPRING_DATASOURCE_URL") != null) {
             return;
         }
-        String databaseUrl = environment.getProperty("DATABASE_URL");
-        if (databaseUrl == null || databaseUrl.isBlank()) {
+
+        String databaseUrl = firstNonBlank(
+                environment.getProperty("DATABASE_URL"),
+                environment.getProperty("DATABASE_PRIVATE_URL")
+        );
+        if (databaseUrl == null) {
             return;
         }
+
         try {
-            URI uri = URI.create(databaseUrl.replace("postgresql://", "http://").replace("postgres://", "http://"));
-            String host = uri.getHost();
-            int port = uri.getPort() > 0 ? uri.getPort() : 5432;
-            String path = uri.getPath();
-            String db = (path != null && path.length() > 1) ? path.substring(1) : "railway";
-
-            Map<String, Object> props = new HashMap<>();
-            props.put("spring.datasource.url", "jdbc:postgresql://" + host + ":" + port + "/" + db);
-
-            String userInfo = uri.getUserInfo();
-            if (userInfo != null && !userInfo.isBlank()) {
-                String[] parts = userInfo.split(":", 2);
-                props.put("spring.datasource.username", parts[0]);
-                if (parts.length > 1) {
-                    props.put("spring.datasource.password", parts[1]);
-                }
+            Matcher matcher = DATABASE_URL_PATTERN.matcher(databaseUrl.trim());
+            if (!matcher.matches()) {
+                System.err.println("[railway] Could not parse DATABASE_URL; use start.sh or set SPRING_DATASOURCE_URL");
+                return;
             }
 
+            String username = decode(matcher.group(1));
+            String password = decode(matcher.group(2));
+            String host = matcher.group(3);
+            String port = matcher.group(4) != null ? matcher.group(4) : "5432";
+            String database = matcher.group(5).replaceAll("/.*$", "");
+
+            Map<String, Object> props = new HashMap<>();
+            props.put("spring.datasource.url", "jdbc:postgresql://" + host + ":" + port + "/" + database);
+            props.put("spring.datasource.username", username);
+            props.put("spring.datasource.password", password);
+
             environment.getPropertySources().addFirst(new MapPropertySource("railwayDatabase", props));
-        } catch (Exception ignored) {
-            // PGHOST 等の個別変数にフォールバック
+            System.err.println("[railway] Configured datasource for host: " + host);
+        } catch (Exception ex) {
+            System.err.println("[railway] Failed to parse DATABASE_URL: " + ex.getMessage());
         }
+    }
+
+    private static String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    private static String decode(String value) {
+        return URLDecoder.decode(value, StandardCharsets.UTF_8);
     }
 }
